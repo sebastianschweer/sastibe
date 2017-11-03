@@ -1,0 +1,11 @@
+Package: sastibe
+Title: Useful Functions for Sebastian Schweer's Projects
+Version: 0.0.0.9000
+Authors@R: person("Sebastian", "Schweer", email = "sebastian.a.schweer@gmail.com", role = c("aut", "cre"))
+Description: This is a collection of useful tools and routines that I use constantly.
+            Included are functions that ease the start of any new script.
+Depends: logging, utils
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.0.1.9000
