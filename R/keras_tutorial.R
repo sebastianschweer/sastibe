@@ -1,7 +1,11 @@
 # Test fuer Github App
+install.packages("keras")
 library(keras)
 install_keras()
 imdb <- dataset_imdb(num_words = 10000)
+
+start_time <- Sys.time()
+
 train_data <- imdb$train$x
 train_labels <- imdb$train$y
 test_data <- imdb$test$x
@@ -83,4 +87,10 @@ model %>% compile(
 
 model %>% fit(x_train, y_train, epochs = 4, batch_size = 512)
 results <- model %>% evaluate(x_test, y_test)
+
 results
+
+print("The script ran for a total of")
+print(difftime(Sys.time(), start_time, units = "hours"))
+
+
