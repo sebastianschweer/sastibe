@@ -31,26 +31,10 @@ y_test <- as.numeric(test_labels)
 
 model <- keras_model_sequential() %>%
   layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>%
+  layer_dense(units = 64, activation = "relu") %>%
   layer_dense(units = 16, activation = "relu") %>%
   layer_dense(units = 1, activation = "sigmoid")
 
-model %>% compile(
-  optimizer = "rmsprop",
-  loss = "binary_crossentropy",
-  metrics = c("accuracy")
-)
-
-model %>% compile(
-  optimizer = optimizer_rmsprop(lr=0.001),
-  loss = "binary_crossentropy",
-  metrics = c("accuracy")
-)
-
-model %>% compile(
-  optimizer = optimizer_rmsprop(lr = 0.001),
-  loss = loss_binary_crossentropy,
-  metrics = metric_binary_accuracy
-)
 
 val_indices <- 1:10000
 
@@ -74,16 +58,6 @@ history <- model %>% fit(
   validation_data = list(x_val, y_val)
 )
 
-model <- keras_model_sequential() %>%
-  layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>%
-  layer_dense(units = 16, activation = "relu") %>%
-  layer_dense(units = 1, activation = "sigmoid")
-
-model %>% compile(
-  optimizer = "rmsprop",
-  loss = "binary_crossentropy",
-  metrics = c("accuracy")
-)
 
 model %>% fit(x_train, y_train, epochs = 4, batch_size = 512)
 results <- model %>% evaluate(x_test, y_test)
