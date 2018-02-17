@@ -1,70 +1,71 @@
-# Test fuer Github App
-install.packages("keras")
-library(keras)
-install_keras()
-imdb <- dataset_imdb(num_words = 10000)
 
-start_time <- Sys.time()
+library(caret)
+library(doParallel)
+library(e1071)
 
-train_data <- imdb$train$x
-train_labels <- imdb$train$y
-test_data <- imdb$test$x
-test_labels <- imdb$test$y
+# Enable parallel processing.
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
 
+# Load the MNIST digit recognition dataset into R
+# http://yann.lecun.com/exdb/mnist/
+# assume you have all 4 files and gunzip'd them
+# creates train$n, train$x, train$y  and test$n, test$x, test$y
+# e.g. train$x is a 60000 x 784 matrix, each row is one digit (28x28)
+# call:  show_digit(train$x[5,])   to see a digit.
+# brendan o'connor - gist.github.com/39760 - anyall.org
+load_mnist <- function() {
+  load_image_file <- function(filename) {
+    ret = list()
+    f = file(filename,'rb')
+    readBin(f,'integer',n=1,size=4,endian='big')
+    ret$n = readBin(f,'integer',n=1,size=4,endian='big')
+    nrow = readBin(f,'integer',n=1,size=4,endian='big')
+    ncol = readBin(f,'integer',n=1,size=4,endian='big')
+    x = readBin(f,'integer',n=ret$n*nrow*ncol,size=1,signed=F)
+    ret$x = matrix(x, ncol=nrow*ncol, byrow=T)
+    close(f)
+    ret
+  }
+  load_label_file <- function(filename) {
+    f = file(filename,'rb')
+    readBin(f,'integer',n=1,size=4,endian='big')
+    n = readBin(f,'integer',n=1,size=4,endian='big')
+    y = readBin(f,'integer',n=n,size=1,signed=F)
+    close(f)
+    y
+  }
+  train <<- load_image_file('train-images.idx3-ubyte')
+  test <<- load_image_file('t10k-images.idx3-ubyte')
 
-max(sapply(train_data, max))
-
-vectorize_sequences <- function(sequences, dimension = 10000) {
-  # Creates an all-zero matrix of shape (length(sequences), dimension)
-  results <- matrix(0, nrow = length(sequences), ncol = dimension)
-  for (i in 1:length(sequences))
-    # Sets specific indices of results[i] to 1s
-    results[i, sequences[[i]]] <- 1
-  results
+  train$y <<- load_label_file('train-labels.idx1-ubyte')
+  test$y <<- load_label_file('t10k-labels.idx1-ubyte')
 }
 
-x_train <- vectorize_sequences(train_data)
-x_test <- vectorize_sequences(test_data)
+show_digit <- function(arr784, col=gray(12:1/12), ...) {
+  image(matrix(arr784, nrow=28)[,28:1], col=col, ...)
+}
 
-y_train <- as.numeric(train_labels)
-y_test <- as.numeric(test_labels)
+train <- data.frame()
+test <- data.frame()
 
-model <- keras_model_sequential() %>%
-  layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>%
-  layer_dense(units = 64, activation = "relu") %>%
-  layer_dense(units = 16, activation = "relu") %>%
-  layer_dense(units = 1, activation = "sigmoid")
+start <- Sys.time()
+# Load data.
+load_mnist()
 
+# Normalize: X = (X - min) / (max - min) => X = (X - 0) / (255 - 0) => X = X / 255.
+train$x <- train$x / 255
 
-val_indices <- 1:10000
+# Setup training data with digit and pixel values with 60/40 split for train/cv.
+inTrain = data.frame(y=train$y, train$x)
+inTrain$y <- as.factor(inTrain$y)
+trainIndex = createDataPartition(inTrain$y, p = 0.60,list=FALSE)
+training = inTrain[trainIndex,]
+cv = inTrain[-trainIndex,]
 
-x_val <- x_train[val_indices,]
-partial_x_train <- x_train[-val_indices,]
-
-y_val <- y_train[val_indices]
-partial_y_train <- y_train[-val_indices]
-
-model %>% compile(
-  optimizer = "rmsprop",
-  loss = "binary_crossentropy",
-  metrics = c("accuracy")
-)
-
-history <- model %>% fit(
-  partial_x_train,
-  partial_y_train,
-  epochs = 20,
-  batch_size = 512,
-  validation_data = list(x_val, y_val)
-)
-
-
-model %>% fit(x_train, y_train, epochs = 4, batch_size = 512)
-results <- model %>% evaluate(x_test, y_test)
-
-results
-
-print("The script ran for a total of")
-print(difftime(Sys.time(), start_time, units = "hours"))
-
-
+# SVM. 95/94.
+fit <- train(y ~ ., data = head(training, 1000), method = 'svmRadial', tuneGrid = data.frame(sigma=0.0107249, C=1))
+results <- predict(fit, newdata = head(cv, 1000))
+confusionMatrix(results, head(cv$y, 1000))
+duration <- Sys.time() - start
+duration
